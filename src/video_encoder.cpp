@@ -248,7 +248,7 @@ void VideoEncoder::embed_data_in_frame(const std::vector<std::byte> &data) {
                 const std::size_t bit_pos = 7 - (bit_index % 8);
                 const int bit = (static_cast<uint8_t>(data[byte_idx]) >> bit_pos) & 1;
                 const auto [coef_y, coef_x] = EMBED_POSITIONS[b];
-                dct[coef_y][coef_x] = bit ? COEFF_STRENGTH : -COEFF_STRENGTH;
+                dct[coef_y][coef_x] = bit ? COEFFICIENT_STRENGTH : -COEFFICIENT_STRENGTH;
                 ++bit_index;
             }
 

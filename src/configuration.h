@@ -17,7 +17,7 @@ constexpr size_t SYMBOL_SIZE_BYTES = 256;
 constexpr double REPAIR_OVERHEAD = 3.00;
 constexpr bool INCLUDE_SOURCE = true;
 constexpr int BITS_PER_BLOCK = 1;
-constexpr double COEFF_STRENGTH = 150.0;
+constexpr double COEFFICIENT_STRENGTH = 150.0;
 
 enum Flags : uint8_t {
     None = 0,
