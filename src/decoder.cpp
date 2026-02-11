@@ -348,6 +348,13 @@ void Decoder::set_decrypt_key(std::span<const std::byte, 32> key) {
     decrypt_key_set_ = true;
 }
 
+void Decoder::clear_decrypt_key() {
+    if (decrypt_key_set_) {
+        secure_zero(decrypt_key_);
+        decrypt_key_set_ = false;
+    }
+}
+
 std::optional<std::vector<std::byte>> Decoder::assemble_file(const uint32_t expected_chunks) const {
     if (completed_chunks.size() != expected_chunks) {
         return std::nullopt;

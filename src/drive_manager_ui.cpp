@@ -28,6 +28,8 @@ WorkerThread::WorkerThread(Operation op, const QString& input, const QString& ou
 }
 
 void WorkerThread::run() {
+    std::array<std::byte, CRYPTO_KEY_BYTES> key{};
+    bool key_used = false;
     try {
         if (operation == Encode) {
             emit statusUpdated("Starting encoding process...");
@@ -58,12 +60,11 @@ void WorkerThread::run() {
                 }
                 return id;
             }();
-            
-            std::array<std::byte, CRYPTO_KEY_BYTES> key{};
             if (encrypt) {
                 const std::string pw = password.toStdString();
                 const std::span<const std::byte> pw_span(reinterpret_cast<const std::byte*>(pw.data()), pw.size());
                 key = derive_key(pw_span, file_id);
+                key_used = true;
             }
             
             const Encoder encoder(file_id);
@@ -101,6 +102,10 @@ void WorkerThread::run() {
                 packets.shrink_to_fit();
             }
             video_encoder.finalize();
+            
+            if (encrypt) {
+                secure_zero(std::span<std::byte>(key));
+            }
             
             emit progressUpdated(100);
             emit operationCompleted(true, "Encoding completed successfully");
@@ -196,14 +201,22 @@ void WorkerThread::run() {
                 }
                 const std::string pw = password.toStdString();
                 const std::span<const std::byte> pw_span(reinterpret_cast<const std::byte*>(pw.data()), pw.size());
-                const auto key = derive_key(pw_span, *decoder.file_id());
-                decoder.set_decrypt_key(key);
+                auto dec_key = derive_key(pw_span, *decoder.file_id());
+                decoder.set_decrypt_key(dec_key);
+                secure_zero(std::span<std::byte>(dec_key));
             }
             
             auto assembled = decoder.assemble_file(expected_chunks);
             if (!assembled) {
+                if (decoder.is_encrypted()) {
+                    decoder.clear_decrypt_key();
+                }
                 emit operationCompleted(false, "Failed to assemble file (wrong password or corrupted data)");
                 return;
+            }
+            
+            if (decoder.is_encrypted()) {
+                decoder.clear_decrypt_key();
             }
             
             std::ofstream out(outputPath.toStdString(), std::ios::binary);
@@ -219,6 +232,9 @@ void WorkerThread::run() {
             emit operationCompleted(true, "Decoding completed successfully");
         }
     } catch (const std::exception& e) {
+        if (key_used) {
+            secure_zero(std::span<std::byte>(key));
+        }
         emit operationCompleted(false, QString("Error: %1").arg(e.what()));
     }
 }
@@ -580,6 +596,7 @@ void DriveManagerUI::onOperationCompleted(bool success, const QString& message) 
     if (success) {
         logMessage("✓ " + message);
         QMessageBox::information(this, "Success", message);
+        passwordEdit->clear();
     } else {
         logMessage("✗ " + message);
         QMessageBox::critical(this, "Error", message);

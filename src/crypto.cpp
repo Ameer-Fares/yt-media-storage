@@ -1,16 +1,13 @@
 #include "crypto.h"
+#include "configuration.h"
 
 #include <sodium.h>
 #include <cstring>
 #include <stdexcept>
 
 static void ensure_sodium_init() {
-    static bool initialized = false;
-    if (!initialized) {
-        if (sodium_init() < 0) {
-            throw std::runtime_error("sodium_init failed");
-        }
-        initialized = true;
+    if (sodium_init() < 0) {
+        throw std::runtime_error("sodium_init failed");
     }
 }
 
@@ -104,7 +101,8 @@ std::vector<std::byte> decrypt_chunk(
     plain_size |= static_cast<uint32_t>(static_cast<uint8_t>(chunk_from_decoder[3])) << 24;
 
     const std::size_t cipher_len = plain_size + crypto_aead_xchacha20poly1305_ietf_ABYTES;
-    if (chunk_from_decoder.size() < CRYPTO_PLAIN_SIZE_HEADER + cipher_len) {
+    if (plain_size > CHUNK_SIZE_BYTES ||
+        chunk_from_decoder.size() < CRYPTO_PLAIN_SIZE_HEADER + cipher_len) {
         throw std::runtime_error("Decryption failed (wrong password or corrupted data)");
     }
 
@@ -130,4 +128,10 @@ std::vector<std::byte> decrypt_chunk(
 
     plain.resize(static_cast<std::size_t>(written));
     return plain;
+}
+
+void secure_zero(std::span<std::byte> data) {
+    if (!data.empty()) {
+        sodium_memzero(data.data(), data.size());
+    }
 }

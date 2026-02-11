@@ -104,6 +104,8 @@ public:
 
     void set_decrypt_key(std::span<const std::byte, 32> key);
 
+    void clear_decrypt_key();
+
     [[nodiscard]] bool is_encrypted() const { return encrypted_; }
 
 private:

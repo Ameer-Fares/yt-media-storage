@@ -23,3 +23,5 @@ std::vector<std::byte> decrypt_chunk(
     std::span<const std::byte, CRYPTO_KEY_BYTES> key,
     std::span<const std::byte, 16> file_id,
     uint32_t chunk_index);
+
+void secure_zero(std::span<std::byte> data);

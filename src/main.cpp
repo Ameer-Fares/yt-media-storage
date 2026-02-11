@@ -102,8 +102,15 @@ static int do_encode(const std::string &input_path, const std::string &output_pa
         }
         video_encoder.finalize();
     } catch (const std::exception &e) {
+        if (encrypt) {
+            secure_zero(std::span<std::byte>(key));
+        }
         std::cerr << "Error writing video: " << e.what() << "\n";
         return 1;
+    }
+
+    if (encrypt) {
+        secure_zero(std::span<std::byte>(key));
     }
 
     const auto video_size = std::filesystem::file_size(output_path);
@@ -203,15 +210,23 @@ static int do_decode(const std::string &input_path, const std::string &output_pa
         }
         const std::span<const std::byte> pw(reinterpret_cast<const std::byte *>(password.data()),
                                             password.size());
-        const auto key = derive_key(pw, *decoder.file_id());
+        auto key = derive_key(pw, *decoder.file_id());
         decoder.set_decrypt_key(key);
+        secure_zero(std::span<std::byte>(key));
     }
 
     auto assembled = decoder.assemble_file(expected_chunks);
     if (!assembled) {
+        if (decoder.is_encrypted()) {
+            decoder.clear_decrypt_key();
+        }
         std::cerr << "Error: failed to assemble file from decoded chunks "
                 << "(wrong password or corrupted data)\n";
         return 1;
+    }
+
+    if (decoder.is_encrypted()) {
+        decoder.clear_decrypt_key();
     }
 
     std::ofstream out(output_path, std::ios::binary);
