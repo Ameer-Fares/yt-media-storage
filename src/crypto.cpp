@@ -84,11 +84,17 @@ std::vector<std::byte> encrypt_chunk(
     build_nonce(nonce, file_id, chunk_index);
 
     const std::size_t cipher_len = plain.size() + crypto_aead_xchacha20poly1305_ietf_ABYTES;
-    std::vector<std::byte> cipher(cipher_len);
+    std::vector<std::byte> result(CRYPTO_PLAIN_SIZE_HEADER + cipher_len);
+
+    const uint32_t plain_size_le = static_cast<uint32_t>(plain.size());
+    result[0] = static_cast<std::byte>(plain_size_le & 0xff);
+    result[1] = static_cast<std::byte>((plain_size_le >> 8) & 0xff);
+    result[2] = static_cast<std::byte>((plain_size_le >> 16) & 0xff);
+    result[3] = static_cast<std::byte>((plain_size_le >> 24) & 0xff);
 
     unsigned long long written = 0;
     if (crypto_aead_xchacha20poly1305_ietf_encrypt(
-            reinterpret_cast<unsigned char *>(cipher.data()),
+            reinterpret_cast<unsigned char *>(result.data() + CRYPTO_PLAIN_SIZE_HEADER),
             &written,
             reinterpret_cast<const unsigned char *>(plain.data()),
             plain.size(),
@@ -100,16 +106,7 @@ std::vector<std::byte> encrypt_chunk(
         throw std::runtime_error("Encryption failed");
     }
 
-    cipher.resize(static_cast<std::size_t>(written));
-
-    std::vector<std::byte> result;
-    result.reserve(CRYPTO_PLAIN_SIZE_HEADER + cipher.size());
-    const uint32_t plain_size_le = static_cast<uint32_t>(plain.size());
-    result.push_back(std::byte(plain_size_le & 0xff));
-    result.push_back(std::byte((plain_size_le >> 8) & 0xff));
-    result.push_back(std::byte((plain_size_le >> 16) & 0xff));
-    result.push_back(std::byte((plain_size_le >> 24) & 0xff));
-    result.insert(result.end(), cipher.begin(), cipher.end());
+    result.resize(CRYPTO_PLAIN_SIZE_HEADER + static_cast<std::size_t>(written));
     return result;
 }
 

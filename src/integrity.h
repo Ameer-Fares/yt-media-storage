@@ -24,12 +24,14 @@
 #include <span>
 #include <string>
 
+constexpr size_t SHA256_HASH_SIZE = 32;
+
 struct Sha256Digest {
     std::array<std::byte, 32> bytes{};
 
     [[nodiscard]] std::string hexValue() const;
 
-    bool operator==(const Sha256Digest & sha256) const = default;
+    bool operator==(const Sha256Digest &sha256) const = default;
 };
 
 uint32_t crc32c(std::span<const std::byte> data, uint32_t seed = 0);

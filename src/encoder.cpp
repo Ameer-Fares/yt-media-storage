@@ -74,22 +74,13 @@ static uint8_t buildFlags(const uint32_t blockId, const uint32_t numSource, cons
     return flags;
 }
 
-static Packet buildPacket(
-    const std::vector<std::byte> &header,
-    const std::span<const std::byte> payload) {
-    Packet packet;
-    const std::size_t totalSize = header.size() + payload.size();
-    packet.bytes.resize(totalSize);
-    std::memcpy(packet.bytes.data(), header.data(), header.size());
-    std::memcpy(packet.bytes.data() + header.size(), payload.data(), payload.size());
-    return packet;
-}
 
 Encoder::Encoder(const FileId file_id)
     : id(file_id) {
 }
 
-std::vector<std::byte> Encoder::create_packet_header(
+void Encoder::write_packet_header(
+    const std::span<std::byte> dest,
     const uint32_t chunk_index,
     const uint32_t chunk_size,
     const uint32_t original_size,
@@ -99,28 +90,23 @@ std::vector<std::byte> Encoder::create_packet_header(
     const uint16_t payload_length,
     const uint8_t flags,
     const std::span<const std::byte> payload) const {
-    std::vector<std::byte> header(HEADER_SIZE_V2);
-    const std::span buf(header.data(), header.size());
-    writeU32LE(buf, MAGIC_OFF, MAGIC_ID);
-    writeByte(buf, VERSION_OFF, VERSION_ID_V2);
-    writeByte(buf, FLAGS_OFF, flags);
+    writeU32LE(dest, MAGIC_OFF, MAGIC_ID);
+    writeByte(dest, VERSION_OFF, VERSION_ID_V2);
+    writeByte(dest, FLAGS_OFF, flags);
 
-    std::byte *fileIdDest = header.data() + FILE_ID_OFF;
-    std::memcpy(fileIdDest, id.data(), id.size());
-    writeU32LE(buf, CHUNK_INDEX_OFF, chunk_index);
-    writeU32LE(buf, CHUNK_SIZE_OFF, chunk_size);
-    writeU32LE(buf, ORIGINAL_SIZE_OFF, original_size);
-    writeU16LE(buf, SYMBOL_SIZE_OFF, symbol_size);
-    writeU32LE(buf, K_OFF, num_source);
-    writeU32LE(buf, ESI_OFF, block_id);
-    writeU16LE(buf, PAYLOAD_LEN_OFF, payload_length);
-    writeU32LE(buf, CRC_OFF_V2, 0);
+    std::memcpy(dest.data() + FILE_ID_OFF, id.data(), id.size());
+    writeU32LE(dest, CHUNK_INDEX_OFF, chunk_index);
+    writeU32LE(dest, CHUNK_SIZE_OFF, chunk_size);
+    writeU32LE(dest, ORIGINAL_SIZE_OFF, original_size);
+    writeU16LE(dest, SYMBOL_SIZE_OFF, symbol_size);
+    writeU32LE(dest, K_OFF, num_source);
+    writeU32LE(dest, ESI_OFF, block_id);
+    writeU16LE(dest, PAYLOAD_LEN_OFF, payload_length);
+    writeU32LE(dest, CRC_OFF_V2, 0);
 
-    const std::span<const std::byte> headerSpan(header.data(), header.size());
+    const std::span<const std::byte> headerSpan(dest.data(), HEADER_SIZE_V2);
     const uint32_t crc = packet_crc32c(headerSpan, payload, CRC_OFF_V2, CRC_SIZE);
-    writeU32LE(buf, CRC_OFF_V2, crc);
-
-    return header;
+    writeU32LE(dest, CRC_OFF_V2, crc);
 }
 
 std::pair<std::vector<Packet>, ChunkManifestEntry>
@@ -175,22 +161,25 @@ Encoder::encode_chunk(
     std::vector<Packet> packets;
     packets.reserve(packetCount);
 
-    std::array<std::byte, SYMBOL_SIZE_BYTES> payload_buffer{};
     for (uint32_t blockId = firstBlockId; blockId <= lastBlockId; ++blockId) {
+        Packet packet;
+        packet.bytes.resize(HEADER_SIZE_V2 + SYMBOL_SIZE_BYTES);
+
+        auto *payload_dest = reinterpret_cast<uint8_t *>(packet.bytes.data() + HEADER_SIZE_V2);
         uint32_t writeLen = 0;
-        if (const WirehairResult result = wirehair_encode(codec, blockId, payload_buffer.data(), static_cast<uint32_t>(payload_buffer.size()), &writeLen); result != Wirehair_Success) {
+        if (const WirehairResult result = wirehair_encode(codec, blockId, payload_dest, static_cast<uint32_t>(SYMBOL_SIZE_BYTES), &writeLen); result != Wirehair_Success) {
             wirehair_free(codec);
             throw std::runtime_error("wirehair_encode() failed");
         }
 
         const uint8_t flags = buildFlags(blockId, numSource, is_last_chunk, encrypted);
         const auto payloadLen = static_cast<uint16_t>(writeLen);
-        const std::span<const std::byte> payload_span(payload_buffer.data(), writeLen);
+        const std::span<const std::byte> payload_span(packet.bytes.data() + HEADER_SIZE_V2, writeLen);
 
-        std::vector<std::byte> header = create_packet_header(
+        write_packet_header(
+            std::span(packet.bytes.data(), HEADER_SIZE_V2),
             chunk_index, chunkSize, manifest.original_size, symbolSize, numSource, blockId, payloadLen, flags, payload_span);
 
-        Packet packet = buildPacket(header, payload_span);
         packets.push_back(std::move(packet));
     }
 

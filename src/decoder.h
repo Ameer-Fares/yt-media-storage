@@ -21,8 +21,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <map>
 #include <optional>
+#include <unordered_map>
 #include <span>
 #include <vector>
 
@@ -134,7 +134,7 @@ private:
     bool encrypted_ = false;
     std::array<std::byte, 32> decrypt_key_{};
     bool decrypt_key_set_ = false;
-    std::map<uint32_t, ChunkDecoder> active_decoders;
-    std::map<uint32_t, std::vector<std::byte>> completed_chunks;
+    std::unordered_map<uint32_t, ChunkDecoder> active_decoders;
+    std::unordered_map<uint32_t, std::vector<std::byte>> completed_chunks;
     size_t total_packets_ = 0;
 };

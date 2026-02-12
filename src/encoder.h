@@ -55,7 +55,8 @@ public:
 private:
     FileId id;
 
-    [[nodiscard]] std::vector<std::byte> create_packet_header(
+    void write_packet_header(
+        std::span<std::byte> dest,
         uint32_t chunk_index,
         uint32_t chunk_size,
         uint32_t original_size,

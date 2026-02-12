@@ -20,6 +20,7 @@
 #include "libs/picosha2.h"
 #include "libs/CRC.h"
 
+#include <array>
 #include <cstring>
 
 static std::string bytes_to_hex(const std::span<const std::byte> inputBytes) {
@@ -41,8 +42,7 @@ Sha256Digest sha256(const std::span<const std::byte> data) {
     Sha256Digest digest;
     const auto dataStart = reinterpret_cast<const uint8_t *>(data.data());
     const auto dataEnd = dataStart + data.size();
-    constexpr size_t SHA256_HASH_SIZE = 32;
-    std::vector<unsigned char> hashBuffer(SHA256_HASH_SIZE);
+    std::array<unsigned char, SHA256_HASH_SIZE> hashBuffer{};
     picosha2::hash256(dataStart, dataEnd, hashBuffer.begin(), hashBuffer.end());
     for (size_t byteIndex = 0; byteIndex < SHA256_HASH_SIZE; ++byteIndex) {
         digest.bytes[byteIndex] = std::byte{hashBuffer[byteIndex]};
