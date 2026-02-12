@@ -1,4 +1,4 @@
-# This file is part of Media Storage, storing files onto YouTube
+# This file is part of yt-media-storage, a tool for encoding media.
 # Copyright (C) Brandon Li <https://brandonli.me/>
 #
 # This program is free software: you can redistribute it and/or modify

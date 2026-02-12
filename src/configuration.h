@@ -1,3 +1,21 @@
+/*
+ * This file is part of yt-media-storage, a tool for encoding media.
+ * Copyright (C) Brandon Li <https://brandonli.me/>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #pragma once
 #include <cstdint>
 #include <cstdlib>
@@ -16,7 +34,7 @@ constexpr size_t CHUNK_SIZE_BYTES = 1024ull * 1024ull; // 1 MiB
 constexpr size_t CRYPTO_AEAD_TAG_BYTES = 16;
 inline constexpr size_t CHUNK_SIZE_PLAIN_MAX_ENCRYPTED = CHUNK_SIZE_BYTES - 4 - CRYPTO_AEAD_TAG_BYTES;
 constexpr size_t SYMBOL_SIZE_BYTES = 256;
-constexpr double REPAIR_OVERHEAD = 3.00;
+constexpr double REPAIR_OVERHEAD = 1.00;
 constexpr bool INCLUDE_SOURCE = true;
 constexpr int BITS_PER_BLOCK = 1;
 constexpr double COEFFICIENT_STRENGTH = 150.0;
