@@ -70,10 +70,20 @@ private:
     bool eof_ = false;
     bool is_gray8_ = false;
     FrameLayout layout_{};
+    std::vector<std::byte> extract_buffer_{};
 
     void init_decoder(const std::string &input_path);
 
     [[nodiscard]] std::vector<std::byte> extract_data_from_frame() const;
 
     [[nodiscard]] std::vector<std::vector<std::byte> > extract_packets_from_frame() const;
+
+    void extract_packets_from_buffer(std::vector<std::byte> &accumulated,
+                                     std::vector<std::vector<std::byte> > &out_packets);
+
+    void prepare_frame_for_extraction();
+
+    [[nodiscard]] std::vector<std::vector<std::byte> > accumulate_frame_and_extract_packets();
+
+    [[nodiscard]] std::vector<std::vector<std::byte> > flush_decoder_and_collect_packets();
 };
