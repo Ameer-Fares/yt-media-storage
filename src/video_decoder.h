@@ -80,4 +80,10 @@ private:
 
     void extract_packets_from_buffer(std::vector<std::byte> &accumulated,
                                      std::vector<std::vector<std::byte> > &out_packets);
+
+    void prepare_frame_for_extraction();
+
+    [[nodiscard]] std::vector<std::vector<std::byte> > accumulate_frame_and_extract_packets();
+
+    [[nodiscard]] std::vector<std::vector<std::byte> > flush_decoder_and_collect_packets();
 };

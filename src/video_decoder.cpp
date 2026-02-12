@@ -252,57 +252,26 @@ std::vector<std::vector<std::byte> > VideoDecoder::extract_packets_from_frame() 
     return packets;
 }
 
-std::vector<std::vector<std::byte> > VideoDecoder::decode_next_frame() {
-    if (eof_) {
-        return {};
+void VideoDecoder::prepare_frame_for_extraction() {
+    if (!is_gray8_) {
+        sws_scale(sws_ctx_, frame_->data, frame_->linesize, 0, frame_->height,
+                  gray_frame_->data, gray_frame_->linesize);
     }
+    ++frame_index_;
+}
 
-    auto process_frame = [this]() -> std::vector<std::vector<std::byte> > {
-        const auto raw_data = extract_data_from_frame();
-        extract_buffer_.insert(extract_buffer_.end(), raw_data.begin(), raw_data.end());
-        std::vector<std::vector<std::byte> > packets;
-        packets.reserve(extract_buffer_.size() / (HEADER_SIZE_V2 + SYMBOL_SIZE_BYTES));
-        extract_packets_from_buffer(extract_buffer_, packets);
-        return packets;
-    };
+std::vector<std::vector<std::byte> > VideoDecoder::accumulate_frame_and_extract_packets() {
+    const auto raw_data = extract_data_from_frame();
+    extract_buffer_.insert(extract_buffer_.end(), raw_data.begin(), raw_data.end());
+    std::vector<std::vector<std::byte> > packets;
+    packets.reserve(extract_buffer_.size() / (HEADER_SIZE_V2 + SYMBOL_SIZE_BYTES));
+    extract_packets_from_buffer(extract_buffer_, packets);
+    return packets;
+}
 
-    while (av_read_frame(format_ctx_, av_packet_) >= 0) {
-        if (av_packet_->stream_index != video_stream_index_) {
-            av_packet_unref(av_packet_);
-            continue;
-        }
-
-        int ret = avcodec_send_packet(codec_ctx_, av_packet_);
-        av_packet_unref(av_packet_);
-
-        if (ret < 0) {
-            continue;
-        }
-
-        ret = avcodec_receive_frame(codec_ctx_, frame_);
-        if (ret == AVERROR(EAGAIN)) {
-            continue;
-        }
-        if (ret == AVERROR_EOF) {
-            eof_ = true;
-            return {};
-        }
-        if (ret < 0) {
-            throw std::runtime_error("Error receiving frame");
-        }
-
-        if (!is_gray8_) {
-            sws_scale(sws_ctx_, frame_->data, frame_->linesize, 0, frame_->height,
-                      gray_frame_->data, gray_frame_->linesize);
-        }
-
-        ++frame_index_;
-
-        return process_frame();
-    }
-
+std::vector<std::vector<std::byte> > VideoDecoder::flush_decoder_and_collect_packets() {
     avcodec_send_packet(codec_ctx_, nullptr);
-    std::vector<std::vector<std::byte> > flushed_packets;
+    std::vector<std::vector<std::byte> > collected;
     while (true) {
         const int ret = avcodec_receive_frame(codec_ctx_, frame_);
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
@@ -311,20 +280,52 @@ std::vector<std::vector<std::byte> > VideoDecoder::decode_next_frame() {
         if (ret < 0) {
             throw std::runtime_error("Error receiving frame");
         }
-        if (!is_gray8_) {
-            sws_scale(sws_ctx_, frame_->data, frame_->linesize, 0, frame_->height,
-                      gray_frame_->data, gray_frame_->linesize);
-        }
-        ++frame_index_;
-        auto packets = process_frame();
+        prepare_frame_for_extraction();
+        auto packets = accumulate_frame_and_extract_packets();
         for (auto &p : packets) {
-            flushed_packets.push_back(std::move(p));
+            collected.push_back(std::move(p));
         }
+    }
+    return collected;
+}
+
+std::vector<std::vector<std::byte> > VideoDecoder::decode_next_frame() {
+    if (eof_) {
+        return {};
+    }
+
+    while (av_read_frame(format_ctx_, av_packet_) >= 0) {
+        if (av_packet_->stream_index != video_stream_index_) {
+            av_packet_unref(av_packet_);
+            continue;
+        }
+
+        const int send_ret = avcodec_send_packet(codec_ctx_, av_packet_);
+        av_packet_unref(av_packet_);
+        if (send_ret < 0) {
+            continue;
+        }
+
+        const int recv_ret = avcodec_receive_frame(codec_ctx_, frame_);
+        if (recv_ret == AVERROR(EAGAIN)) {
+            continue;
+        }
+        if (recv_ret == AVERROR_EOF) {
+            eof_ = true;
+            return {};
+        }
+        if (recv_ret < 0) {
+            throw std::runtime_error("Error receiving frame");
+        }
+
+        prepare_frame_for_extraction();
+        return accumulate_frame_and_extract_packets();
     }
 
     eof_ = true;
-    if (!flushed_packets.empty()) {
-        return flushed_packets;
+    auto flushed = flush_decoder_and_collect_packets();
+    if (!flushed.empty()) {
+        return flushed;
     }
     if (!extract_buffer_.empty()) {
         std::vector<std::vector<std::byte> > packets;
