@@ -134,7 +134,8 @@ int64_t VideoDecoder::total_frames() const {
 }
 
 std::vector<std::byte> VideoDecoder::extract_data_from_frame() const {
-    const auto &[vectors] = get_decoder_projections();
+    const auto &projections = get_decoder_projections();
+    const auto &vectors = projections.vectors;
 
     const int blocks_per_row = layout_.blocks_per_row;
     const int total_blocks = layout_.total_blocks;
