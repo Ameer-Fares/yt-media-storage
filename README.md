@@ -4,14 +4,17 @@
 
 # Media Storage
 
-[![Star History Chart](https://api.star-history.com/svg?repos=PulseBeat02/yt-media-storage&type=Date)](https://star-history.com/#PulseBeat02/yt-media-storage&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=PulseBeat02/yt-media-storage&type=date&legend=top-left)](https://www.star-history.com/#PulseBeat02/yt-media-storage&type=date&legend=top-left)
+
+**Explanation Video**: https://youtu.be/l03Os5uwWmk?si=xgZPNMrvs_aDcWE5  
+**YC Hacker News**: https://news.ycombinator.com/item?id=47012964
 
 Stores files onto YouTube by encoding them into lossless video and decoding them back to the original file. Supports
 both a command-line interface and a graphical user interface.
 
 ## Features
 
-- **File Encoding/Decoding**: Encode any file into a lossless video (FFV1/MKV) and decode it back
+- **File Encoding/Decoding**: Encode any file into a lossless video (FFV1/MKV) and then decode it back to the original file
 - **Fountain Codes**: Uses [Wirehair](https://github.com/catid/wirehair) fountain codes for redundancy and repair
 - **Optional Encryption**: Encrypt files with a password using libsodium (XChaCha20-Poly1305)
 - **Batch Processing**: Queue multiple files for batch encoding (GUI)
@@ -40,7 +43,7 @@ GUI. You may need to install some shared libraries (FFmpeg, Qt6, libsodium) to r
 sudo apt update
 sudo apt install cmake build-essential qt6-base-dev \
   libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev \
-  libsodium-dev libomp-dev
+  libsodium-dev libomp-dev ffmpeg
 ```
 
 ### Fedora/CentOS
@@ -145,6 +148,7 @@ This produces two executables:
 - **Cannot open input file**: Check file permissions and paths
 - **Encoding fails**: Ensure sufficient disk space for output video
 - **Decoding fails**: Verify the input file is a valid encoded video
+- **Encode Error: failed to write header**: Make sure you have at least FFMPEG version 8 in-order to use FFV1 encoder on mp4. Otherwise, use mkv instead.
 
 ## License
 
